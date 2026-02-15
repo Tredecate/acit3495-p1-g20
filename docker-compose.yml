@@ -16,7 +16,16 @@ services:
     env_file: .env
     volumes:
       - ./data_volume:/data/db
-  
+
+  svc_authentication:
+    build: ./svc_authentication
+    container_name: svc_authentication
+    expose:
+      - "8080"
+    env_file: .env
+    volumes:
+      - ./data_volume:/data
+
   svc_analytics:
     build: ./svc_analytics
     container_name: svc_analytics
@@ -24,18 +33,10 @@ services:
     depends_on:
       - db_mysql
       - db_mongodb
+      - web_dataentry
     environment:
       - MYSQL_HOST=db_mysql
       - MONGO_HOST=db_mongodb
-
-  svc_authentication:
-    build: ./svc_authentication
-    container_name: svc_authentication
-    expose:
-      - "8082:8080"
-    env_file: .env
-    volumes:
-      - ./data_volume:/data
   
   web_analytics:
     build: ./web_analytics
@@ -46,6 +47,7 @@ services:
     depends_on:
       - svc_authentication
       - db_mongodb
+      - svc_analytics
     environment:
       - AUTH_HOST=svc_authentication
       - MONGO_HOST=db_mongodb
