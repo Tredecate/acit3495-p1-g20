@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %></title>
+</head>
+<body>
+  <h1>Data Entry</h1>
+  <p>Signed in as <strong><%= currentUser.username %></strong> <% if (currentUser.is_admin) { %>(admin)<% } %></p>
+
+  <form method="post" action="/logout" style="display: inline; margin-right: 8px;">
+    <button type="submit">Logout</button>
+  </form>
+
+  <% if (currentUser.is_admin) { %>
+    <a href="/admin/users">Manage Users</a>
+  <% } %>
+
+  <hr />
+
+  <% if (error) { %>
+    <p style="color: red;"><%= error %></p>
+  <% } %>
+
+  <% if (message) { %>
+    <p style="color: green;"><%= message %></p>
+  <% } %>
+
+  <form method="post" action="/entry">
+    <label for="recorded_at">Recorded At</label><br />
+    <input id="recorded_at" name="recorded_at" type="datetime-local" required value="<%= values.recorded_at %>" /><br /><br />
+
+    <label for="location">Location</label><br />
+    <input id="location" name="location" type="text" maxlength="100" required value="<%= values.location %>" /><br /><br />
+
+    <label for="metric_type">Metric Type</label><br />
+    <select id="metric_type" name="metric_type" required>
+      <% metricTypes.forEach(function(metricType) { %>
+        <option value="<%= metricType %>" <%= values.metric_type === metricType ? 'selected' : '' %>><%= metricType %></option>
+      <% }); %>
+    </select><br /><br />
+
+    <label for="metric_value">Metric Value</label><br />
+    <input id="metric_value" name="metric_value" type="number" step="0.01" required value="<%= values.metric_value %>" /><br /><br />
+
+    <label for="notes">Notes (optional)</label><br />
+    <input id="notes" name="notes" type="text" maxlength="255" value="<%= values.notes %>" /><br /><br />
+
+    <button type="submit">Submit Reading</button>
+  </form>
+</body>
+</html>
