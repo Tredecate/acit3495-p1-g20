@@ -34,9 +34,6 @@ services:
       - db_mysql
       - db_mongodb
       - web_dataentry
-    environment:
-      - MYSQL_HOST=db_mysql
-      - MONGO_HOST=db_mongodb
   
   web_analytics:
     build: ./web_analytics
@@ -48,9 +45,6 @@ services:
       - svc_authentication
       - db_mongodb
       - svc_analytics
-    environment:
-      - AUTH_HOST=svc_authentication
-      - MONGO_HOST=db_mongodb
   
   web_dataentry:
     build: ./web_dataentry
@@ -61,6 +55,3 @@ services:
     depends_on:
       - svc_authentication
       - db_mysql
-    environment:
-      - AUTH_HOST=svc_authentication
-      - MYSQL_HOST=db_mysql
