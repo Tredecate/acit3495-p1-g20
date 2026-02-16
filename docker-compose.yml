@@ -1,6 +1,6 @@
 services:
   db_mysql:
-    image: mysql:latest
+    image: mysql:8.4
     container_name: db_mysql
     expose:
       - "3306"
@@ -10,7 +10,7 @@ services:
       - ./.volumes/.mysql_init_volume:/docker-entrypoint-initdb.d
   
   db_mongodb:
-    image: mongo:latest
+    image: mongo:8.2
     container_name: db_mongodb
     expose:
       - "27017"
