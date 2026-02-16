@@ -39,7 +39,7 @@ async function postEntry(req, res, next) {
     });
   }
 
-  const recordedAt = toMySqlDateTime(normalized.recordedAtInput);
+  const recordedAt = toMySqlDateTime(normalized.recordedAtInput, normalized.timezoneOffsetMinutes);
   if (!recordedAt) {
     return res.status(400).render("entry", {
       title: "Data Entry",
