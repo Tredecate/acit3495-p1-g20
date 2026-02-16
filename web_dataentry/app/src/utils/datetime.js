@@ -1,17 +1,28 @@
-function toMySqlDateTime(input) {
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) {
+const { DateTime, FixedOffsetZone } = require("luxon");
+
+function toMySqlDateTime(input, timezoneOffsetMinutes = null) {
+  if (typeof input !== "string") {
     return null;
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
+  const normalizedInput = input.length === 16 ? `${input}:00` : input;
 
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  if (Number.isInteger(timezoneOffsetMinutes)) {
+    const zone = FixedOffsetZone.instance(-timezoneOffsetMinutes);
+    const dateTime = DateTime.fromFormat(normalizedInput, "yyyy-MM-dd'T'HH:mm:ss", { zone });
+    if (!dateTime.isValid) {
+      return null;
+    }
+
+    return dateTime.toUTC().toFormat("yyyy-MM-dd HH:mm:ss");
+  }
+
+  const fallbackDateTime = DateTime.fromISO(normalizedInput);
+  if (!fallbackDateTime.isValid) {
+    return null;
+  }
+
+  return fallbackDateTime.toUTC().toFormat("yyyy-MM-dd HH:mm:ss");
 }
 
 module.exports = {

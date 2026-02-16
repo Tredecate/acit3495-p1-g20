@@ -7,6 +7,7 @@ function validateReading(input) {
   const metricValueRaw = String(input.metric_value || "").trim();
   const notes = (input.notes || "").trim();
   const recordedAtInput = input.recorded_at;
+  const timezoneOffsetRaw = input.timezone_offset_min;
 
   if (!recordedAtInput) {
     errors.push("recorded_at is required");
@@ -25,6 +26,16 @@ function validateReading(input) {
     errors.push("metric_value must be a number");
   }
 
+  let timezoneOffsetMinutes = null;
+  if (timezoneOffsetRaw !== undefined && timezoneOffsetRaw !== null && String(timezoneOffsetRaw).trim() !== "") {
+    const offset = Number(String(timezoneOffsetRaw).trim());
+    if (!Number.isInteger(offset) || offset < -840 || offset > 840) {
+      errors.push("timezone_offset_min is invalid");
+    } else {
+      timezoneOffsetMinutes = offset;
+    }
+  }
+
   if (notes.length > 255) {
     errors.push("notes must be 255 characters or fewer");
   }
@@ -34,6 +45,7 @@ function validateReading(input) {
     errors,
     normalized: {
       recordedAtInput,
+      timezoneOffsetMinutes,
       location,
       metricType,
       metricValue,

@@ -8,6 +8,7 @@
 <body>
   <h1>Data Entry</h1>
   <p>Signed in as <strong><%= currentUser.username %></strong> <% if (currentUser.is_admin) { %>(admin)<% } %></p>
+  <p>Recorded At is interpreted in your local timezone and stored as UTC.</p>
 
   <form method="post" action="/logout" style="display: inline; margin-right: 8px;">
     <button type="submit">Logout</button>
@@ -28,6 +29,8 @@
   <% } %>
 
   <form method="post" action="/entry">
+    <input id="timezone_offset_min" name="timezone_offset_min" type="hidden" value="" />
+
     <label for="recorded_at">Recorded At</label><br />
     <input id="recorded_at" name="recorded_at" type="datetime-local" required value="<%= values.recorded_at %>" /><br /><br />
 
@@ -49,5 +52,16 @@
 
     <button type="submit">Submit Reading</button>
   </form>
+
+  <script>
+    (function setTimezoneOffset() {
+      var field = document.getElementById("timezone_offset_min");
+      if (!field) {
+        return;
+      }
+
+      field.value = String(new Date().getTimezoneOffset());
+    })();
+  </script>
 </body>
 </html>
