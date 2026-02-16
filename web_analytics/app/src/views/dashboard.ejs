@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %></title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Analytics Dashboard</h1>
+
+  <p>Signed in as <strong><%= currentUser?.username || "unknown" %></strong></p>
+  <form method="post" action="/logout">
+    <button type="submit">Logout</button>
+  </form>
+
+  <% if (!snapshot) { %>
+    <h2>No analytics snapshot available yet</h2>
+    <p>Wait for the analytics worker to write at least one snapshot.</p>
+  <% } else { %>
+    <h2>Latest Snapshot</h2>
+    <ul>
+      <li><strong>Calculated at:</strong> <%= snapshot.calculated_at || "n/a" %></li>
+      <li><strong>Window start:</strong> <%= snapshot.window_start || "n/a" %></li>
+      <li><strong>Window end:</strong> <%= snapshot.window_end || "n/a" %></li>
+      <li><strong>Source count:</strong> <%= snapshot.source_count %></li>
+    </ul>
+
+    <h3>Grouped Statistics (metric_type + location)</h3>
+    <% if (!snapshot.groups.length) { %>
+      <p>No grouped rows in this snapshot.</p>
+    <% } else { %>
+      <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Metric Type</th>
+            <th>Location</th>
+            <th>Count</th>
+            <th>Min</th>
+            <th>Max</th>
+            <th>Avg</th>
+            <th>Last Recorded At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% snapshot.groups.forEach((group) => { %>
+            <tr>
+              <td><%= group.metric_type %></td>
+              <td><%= group.location %></td>
+              <td><%= group.count %></td>
+              <td><%= group.min.toFixed(2) %></td>
+              <td><%= group.max.toFixed(2) %></td>
+              <td><%= group.avg.toFixed(2) %></td>
+              <td><%= group.last_recorded_at || "n/a" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+
+    <h3>Global by Metric</h3>
+    <% if (!snapshot.global_by_metric.length) { %>
+      <p>No global metric rows in this snapshot.</p>
+    <% } else { %>
+      <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Metric Type</th>
+            <th>Count</th>
+            <th>Min</th>
+            <th>Max</th>
+            <th>Avg</th>
+            <th>Last Recorded At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% snapshot.global_by_metric.forEach((metric) => { %>
+            <tr>
+              <td><%= metric.metric_type %></td>
+              <td><%= metric.count %></td>
+              <td><%= metric.min.toFixed(2) %></td>
+              <td><%= metric.max.toFixed(2) %></td>
+              <td><%= metric.avg.toFixed(2) %></td>
+              <td><%= metric.last_recorded_at || "n/a" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+
+    <h3>Average by Metric Type</h3>
+    <canvas id="avgByMetricChart" width="500" height="200"></canvas>
+    <script id="chart-data" type="application/json"><%- JSON.stringify(chart) %></script>
+    <script>
+      const chartDataElement = document.getElementById("chart-data");
+      const chartData = chartDataElement
+        ? JSON.parse(chartDataElement.textContent)
+        : { labels: [], values: [] };
+      const ctx = document.getElementById("avgByMetricChart");
+
+      if (ctx && chartData.labels.length) {
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: chartData.labels,
+            datasets: [
+              {
+                label: "Average",
+                data: chartData.values,
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    </script>
+  <% } %>
+</body>
+</html>
