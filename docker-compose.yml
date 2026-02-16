@@ -6,7 +6,7 @@ services:
       - "3306"
     env_file: .env
     volumes:
-      - ./.volumes/mysql_data_volume:/var/lib/mysql
+      - mysql_data_volume:/var/lib/mysql
       - ./.volumes/.mysql_init_volume:/docker-entrypoint-initdb.d
   
   db_mongodb:
@@ -16,7 +16,7 @@ services:
       - "27017"
     env_file: .env
     volumes:
-      - ./.volumes/mongodb_data_volume:/data/db
+      - mongodb_data_volume:/data/db
       - ./.volumes/.mongodb_init_volume:/docker-entrypoint-initdb.d
 
   svc_authentication:
@@ -26,7 +26,7 @@ services:
       - "8080"
     env_file: .env
     volumes:
-      - ./.volumes/auth_data_volume:/data
+      - auth_data_volume:/data
 
   svc_analytics:
     build: ./svc_analytics
@@ -55,3 +55,8 @@ services:
     depends_on:
       - svc_authentication
       - db_mysql
+
+volumes:
+  mysql_data_volume:
+  mongodb_data_volume:
+  auth_data_volume:
