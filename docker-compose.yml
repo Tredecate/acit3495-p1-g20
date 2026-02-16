@@ -1,0 +1,62 @@
+services:
+  db_mysql:
+    image: mysql:8.4
+    container_name: db_mysql
+    expose:
+      - "3306"
+    env_file: .env
+    volumes:
+      - mysql_data_volume:/var/lib/mysql
+      - ./.volumes/.mysql_init_volume:/docker-entrypoint-initdb.d
+  
+  db_mongodb:
+    image: mongo:8.2
+    container_name: db_mongodb
+    expose:
+      - "27017"
+    env_file: .env
+    volumes:
+      - mongodb_data_volume:/data/db
+      - ./.volumes/.mongodb_init_volume:/docker-entrypoint-initdb.d
+
+  svc_authentication:
+    build: ./svc_authentication
+    container_name: svc_authentication
+    expose:
+      - "8080"
+    env_file: .env
+    volumes:
+      - auth_data_volume:/data
+
+  svc_analytics:
+    build: ./svc_analytics
+    container_name: svc_analytics
+    env_file: .env
+    depends_on:
+      - db_mysql
+      - db_mongodb
+  
+  web_analytics:
+    build: ./web_analytics
+    container_name: web_analytics
+    ports:
+      - "8081:8080"
+    env_file: .env
+    depends_on:
+      - svc_authentication
+      - db_mongodb
+  
+  web_dataentry:
+    build: ./web_dataentry
+    container_name: web_dataentry
+    ports:
+      - "8080:8080"
+    env_file: .env
+    depends_on:
+      - svc_authentication
+      - db_mysql
+
+volumes:
+  mysql_data_volume:
+  mongodb_data_volume:
+  auth_data_volume:
