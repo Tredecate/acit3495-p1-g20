@@ -35,7 +35,6 @@ services:
     depends_on:
       - db_mysql
       - db_mongodb
-      - web_dataentry
   
   web_analytics:
     build: ./web_analytics
@@ -46,7 +45,6 @@ services:
     depends_on:
       - svc_authentication
       - db_mongodb
-      - svc_analytics
   
   web_dataentry:
     build: ./web_dataentry
