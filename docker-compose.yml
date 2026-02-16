@@ -6,7 +6,7 @@ services:
       - "3306"
     env_file: .env
     volumes:
-      - ./mysql_data_volume:/var/lib/mysql
+      - ./.volumes/mysql_data_volume:/var/lib/mysql
   
   db_mongodb:
     image: mongo:latest
@@ -15,7 +15,7 @@ services:
       - "27017"
     env_file: .env
     volumes:
-      - ./mongodb_data_volume:/data/db
+      - ./.volumes/mongodb_data_volume:/data/db
 
   svc_authentication:
     build: ./svc_authentication
@@ -24,7 +24,7 @@ services:
       - "8080"
     env_file: .env
     volumes:
-      - ./auth_data_volume:/data
+      - ./.volumes/auth_data_volume:/data
 
   svc_analytics:
     build: ./svc_analytics
