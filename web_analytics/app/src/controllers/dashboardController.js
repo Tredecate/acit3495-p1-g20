@@ -1,18 +1,38 @@
-const { fetchLatestDashboardData } = require("../services/analyticsService");
+const { fetchDashboardDataForRange } = require("../services/analyticsService");
 
 async function getDashboard(req, res, next) {
   try {
-    const { snapshot, chart } = await fetchLatestDashboardData();
+    const { snapshot, chart, range, timeline } = await fetchDashboardDataForRange({
+      start: req.query.start,
+      end: req.query.end
+    });
+
     return res.render("dashboard", {
       title: "Analytics Dashboard",
       snapshot,
-      chart
+      chart,
+      range,
+      timeline
     });
   } catch (error) {
     return next(error);
   }
 }
 
+async function getDashboardData(req, res, next) {
+  try {
+    const data = await fetchDashboardDataForRange({
+      start: req.query.start,
+      end: req.query.end
+    });
+
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
-  getDashboard
+  getDashboard,
+  getDashboardData
 };

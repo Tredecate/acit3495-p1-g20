@@ -26,6 +26,50 @@ async function getLatestSnapshot() {
   return collection.find({}).sort({ calculated_at: -1 }).limit(1).next();
 }
 
+async function getTimelineSnapshots() {
+  const collection = await getSnapshotsCollection();
+  return collection
+    .aggregate([
+      {
+        $project: {
+          _id: 0,
+          calculated_at: 1,
+          group_count: {
+            $size: {
+              $ifNull: ["$groups", []]
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          calculated_at: {
+            $ne: null
+          }
+        }
+      },
+      {
+        $sort: {
+          calculated_at: 1
+        }
+      }
+    ])
+    .toArray();
+}
+
+async function getSnapshotsInRange(start, end) {
+  const collection = await getSnapshotsCollection();
+  return collection
+    .find({
+      calculated_at: {
+        $gte: start,
+        $lte: end
+      }
+    })
+    .sort({ calculated_at: 1 })
+    .toArray();
+}
+
 async function pingDb() {
   const client = await getMongoClient();
   await client.db(mongo.database).command({ ping: 1 });
@@ -33,5 +77,7 @@ async function pingDb() {
 
 module.exports = {
   getLatestSnapshot,
+  getTimelineSnapshots,
+  getSnapshotsInRange,
   pingDb
 };
