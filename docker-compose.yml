@@ -7,6 +7,7 @@ services:
     env_file: .env
     volumes:
       - ./.volumes/mysql_data_volume:/var/lib/mysql
+      - ./.volumes/.mysql_init_volume:/docker-entrypoint-initdb.d
   
   db_mongodb:
     image: mongo:latest
@@ -16,6 +17,7 @@ services:
     env_file: .env
     volumes:
       - ./.volumes/mongodb_data_volume:/data/db
+      - ./.volumes/.mongodb_init_volume:/docker-entrypoint-initdb.d
 
   svc_authentication:
     build: ./svc_authentication
