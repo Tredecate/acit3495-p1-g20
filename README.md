@@ -11,10 +11,14 @@
 5. Use the Data Entry Web App's login page to authenticate with the admin credentials set in `.env`
 
 ## Usage
-- Go to the Data Entry Web App's authentication settings page to create additional user accounts
+- Go to the Data Entry Web App's admin-only users management page to create additional user accounts
 - Sign in to the Data Entry Web App to input data, which will be stored in MySQL/MariaDB
 - The Analytics Service will process the data and store results in MongoDB
 - Sign in to the Analytics Web App to view analytics results
+
+## Teardown Instructions
+- **To stop the services but retain data**: run `docker compose down` in the project root directory
+- **To stop the services and remove all data**: run `docker compose down -v` in the project root directory (this will remove all named volumes, including database data)
 
 ## Service Overview
 - **Data Entry Web App**: A web application for entering data
