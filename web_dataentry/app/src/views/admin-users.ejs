@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %></title>
+</head>
+<body>
+  <h1>User Management</h1>
+  <p>Signed in as <strong><%= currentUser.username %></strong> (admin)</p>
+
+  <a href="/entry">Back to Entry</a>
+  <form method="post" action="/logout" style="display: inline; margin-left: 8px;">
+    <button type="submit">Logout</button>
+  </form>
+
+  <hr />
+
+  <% if (error) { %>
+    <p style="color: red;"><%= error %></p>
+  <% } %>
+
+  <% if (message) { %>
+    <p style="color: green;"><%= message %></p>
+  <% } %>
+
+  <h2>Create User</h2>
+  <form method="post" action="/admin/users">
+    <label for="username">Username</label><br />
+    <input id="username" name="username" type="text" required /><br /><br />
+
+    <label for="password">Password</label><br />
+    <input id="password" name="password" type="password" required /><br /><br />
+
+    <label>
+      <input name="is_admin" type="checkbox" /> Admin
+    </label><br />
+    <label>
+      <input name="is_active" type="checkbox" checked /> Active
+    </label><br /><br />
+
+    <button type="submit">Create User</button>
+  </form>
+
+  <hr />
+
+  <h2>Existing Users</h2>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Admin</th>
+        <th>Active</th>
+        <th>Created</th>
+        <th>Updated</th>
+        <th>Update</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% users.forEach(function(user) { %>
+        <tr>
+          <td><%= user.username %></td>
+          <td><%= user.is_admin ? 'yes' : 'no' %></td>
+          <td><%= user.is_active ? 'yes' : 'no' %></td>
+          <td><%= user.created_at %></td>
+          <td><%= user.updated_at %></td>
+          <td>
+            <form method="post" action="/admin/users/<%= encodeURIComponent(user.username) %>">
+              <label>
+                <input name="is_admin" type="checkbox" <%= user.is_admin ? 'checked' : '' %> /> Admin
+              </label>
+              <label>
+                <input name="is_active" type="checkbox" <%= user.is_active ? 'checked' : '' %> /> Active
+              </label>
+              <label>
+                Password:
+                <input name="password" type="password" placeholder="leave blank to keep" />
+              </label>
+              <button type="submit">Save</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</body>
+</html>

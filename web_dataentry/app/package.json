@@ -1,0 +1,19 @@
+{
+  "name": "web_dataentry",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Data entry web app for ACIT3495 project",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "dotenv": "^16.6.1",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.2",
+    "luxon": "^3.7.2",
+    "mysql2": "^3.15.3"
+  }
+}

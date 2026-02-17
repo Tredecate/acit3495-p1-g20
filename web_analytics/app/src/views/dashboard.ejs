@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.js" defer></script>
+  <script src="/static/js/dashboard.js" defer></script>
+</head>
+<body>
+  <div class="layout-stack">
+    <h1>Analytics Dashboard</h1>
+
+    <p>Signed in as <strong><%= currentUser?.username || "unknown" %></strong></p>
+    <form method="post" action="/logout">
+      <button type="submit">Logout</button>
+    </form>
+
+    <section class="range-panel">
+      <h2>Select Timeframe</h2>
+      <p>Use the timeline handles or datetime fields to choose a start and end. Timeline markers show where snapshots exist.</p>
+
+      <div class="timeline-wrap">
+        <div id="timelineMarkers" aria-hidden="true"></div>
+        <div id="timelineSlider"></div>
+      </div>
+
+      <div class="range-inputs">
+        <label>
+          Start Time
+          <input id="rangeStartInput" type="datetime-local" />
+        </label>
+        <label>
+          End Time
+          <input id="rangeEndInput" type="datetime-local" />
+        </label>
+      </div>
+
+      <div>
+        <button id="applyRangeButton" type="button">Apply Timeframe</button>
+      </div>
+      <p id="rangeStatus"></p>
+    </section>
+
+    <section>
+      <h2>Aggregated Snapshot Summary</h2>
+      <ul id="snapshotSummary" class="summary-list"></ul>
+      <p id="noDataMessage" hidden>No snapshots found for the selected timeframe.</p>
+    </section>
+
+    <section>
+      <h3>Grouped Statistics (metric_type + location)</h3>
+      <div id="groupsContainer"></div>
+    </section>
+
+    <section>
+      <h3>Global by Metric</h3>
+      <div id="metricsContainer"></div>
+    </section>
+
+    <section>
+      <h3>Average by Metric Type</h3>
+      <canvas id="avgByMetricChart" width="700" height="260"></canvas>
+    </section>
+  </div>
+
+  <script id="dashboard-initial-data" type="application/json"><%- JSON.stringify({ snapshot, chart, range, timeline }) %></script>
+</body>
+</html>
