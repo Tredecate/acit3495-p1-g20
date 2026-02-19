@@ -1,5 +1,37 @@
 # ACIT3495 Project 1 Group 20 Technical Report
 
+## Table of Contents
+1. [Executive Summary](#1-executive-summary)
+2. [System Architecture](#2-system-architecture)
+   - 2.1 [Service Topology](#21-service-topology)
+   - 2.2 [Dockerfiles](#22-dockerfiles)
+   - 2.3 [Database Initialization](#23-database-initialization)
+   - 2.4 [Docker Compose](#24-docker-compose)
+3. [Databases](#3-databases)
+   - 3.1 [Raw Readings (MySQL)](#31-raw-readings-mysql)
+   - 3.2 [Analytics Snapshots (MongoDB)](#32-analytics-snapshots-mongodb)
+4. [Authentication and Authorization](#4-authentication-and-authorization)
+   - 4.1 [Auth Service](#41-auth-service)
+   - 4.2 [Guardrails](#42-guardrails)
+   - 4.3 [Routes](#43-routes)
+5. [Data Entry Web App](#5-data-entry-web-app)
+   - 5.1 [Main Responsibilities](#51-main-responsibilities)
+   - 5.2 [Validation and Normalization](#52-validation-and-normalization)
+   - 5.3 [Authorization & Protecting Pages](#53-authorization--protecting-pages)
+   - 5.4 [Routes](#54-routes)
+6. [Analytics Service](#6-analytics-service)
+   - 6.1 [Loop Flow](#61-loop-flow)
+   - 6.2 [Target Stats](#62-target-stats)
+7. [Analytics Web App](#7-analytics-web-app)
+   - 7.1 [Main Responsibilities](#71-main-responsibilities)
+   - 7.2 [Range and Timeline Logic](#72-range-and-timeline-logic)
+   - 7.3 [Front End Stack](#73-front-end-stack)
+   - 7.4 [Routes](#74-routes)
+8. [Configuration](#8-configuration)
+9. [Example User Flow](#9-example-user-flow)
+   - 9.1 [User Login and Data Entry](#91-user-login-and-data-entry)
+   - 9.2 [Analytics Generation and Dashboard Read](#92-analytics-generation-and-dashboard-read)
+
 ## 1. Executive Summary
 This repository implements a small distributed analytics platform with four application services and two databases.
 
