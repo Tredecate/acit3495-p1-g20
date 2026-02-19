@@ -1,4 +1,5 @@
 # ACIT3495 - Project 1 - Group 20
+*Link to technical report: [TECHNICAL_REPORT.md](./TECHNICAL_REPORT.md)*
 ## Group Members
 - [Thomas](https://github.com/Tredecate)
 - [Maksym](https://github.com/nemanull)
