@@ -4,23 +4,23 @@
 This repository implements a small distributed analytics platform with four application services and two databases.
 
 We used:
-- `web_dataentry` to collect environmental readings from authenticated users.
-- `svc_authentication` to handle login, token issuance, and admin user management.
+- `web_dataentry` to collect environmental readings (eg. temperature) from authenticated users.
+- `svc_authentication` to handle login, session tokens, and user management.
 - `svc_analytics` to periodically aggregate readings into snapshots.
-- `web_analytics` to visualize snapshot data in a dashboard.
+- `web_analytics` to present snapshot data in a dashboard.
 - MySQL to store raw readings.
 - MongoDB to store analytics snapshots.
 
-The design separates write workload (raw inserts) from read workload (aggregated dashboard queries). This keeps user data entry simple and keeps analytics queries fast.
+The services are deployed using Docker Compose, using `Dockerfile`s to define the application images and initialization scripts to set up the databases.
 
 ## 2. System Architecture
 
 ### 2.1 Service Topology
 The stack is orchestrated with Docker Compose:
-- `db_mysql` (`mysql:8.4`) for transactional storage.
-- `db_mongodb` (`mongo:8.2`) for analytics documents.
-- `svc_authentication` (FastAPI + SQLite) for identity and authorization.
-- `svc_analytics` (Python worker) for ETL-style aggregation.
+- `db_mysql` (`mysql:8.4`) for raw data storage.
+- `db_mongodb` (`mongo:8.2`) for analytics snapshots.
+- `svc_authentication` (FastAPI + SQLite) for auth management.
+- `svc_analytics` (Python worker) for simple periodic aggregation calculations.
 - `web_dataentry` (Express + EJS) for authenticated data input and admin operations.
 - `web_analytics` (Express + EJS + Chart.js) for authenticated analytics viewing.
 
@@ -28,21 +28,47 @@ External ports:
 - Data Entry UI: `localhost:8080`
 - Analytics UI: `localhost:8081`
 
-### 2.2 Why this Split
-We used service boundaries for clear responsibilities:
-- Authentication logic and user table are isolated in one service.
-- Data entry focuses on validation and inserting clean records.
-- Analytics worker does periodic computation in background.
-- Dashboard reads pre-computed values for faster response.
+### 2.2 Dockerfiles
+We have two types of `Dockerfile`s:
+- Web apps built on NodeJS, which are based on `node:20-alpine`
+- Services built on Python, which are based on `python:3.12-slim`
 
-This is simple to reason about and easy to scale by service role.
+Each `Dockerfile`:
+- declares its base image,
+- sets environment variables (if applicable, currently just python),
+- sets its work directory,
+- copies either `requirements.txt` or `package*.json` into the image,
+- installs dependencies (with `pip` or `npm`),
+- copies the app source code directory into the image,
+- exposes the relevant port,
+- sets the command to start the service.
 
-## 3. Data Layer Design
+(We also tossed in `.dockerignore` files for the node apps, just to cover us in case we'd ran `npm install` locally for testing at some point.)
 
-### 3.1 MySQL Raw Readings
-We used MySQL as the source of truth for raw measurement events.
+### 2.3 Database Initialization
+Both database images are configured to run any scripts found in `/docker-entrypoint-initdb.d` on startup. So, we took advantage of this to create schemas/collections and indexes the first time either container is run.
 
-`readings` schema (initialized by `.volumes/.mysql_init_volume/01-init-readings.sql`):
+We toyed with the idea of having the analytics service initialize the databases, but that kinda goes against the whole Microservices thing, and we didn't want to define an additional service *just* for the databases.
+
+Fortunately, we found the init script feature, so we just mounted the scripts (currently stored in `.volumes/.databasename_init_volume`) with bind mounts to the expected folders inside the database containers.
+
+### 2.4 Docker Compose
+Prior to actually creating any of the services, we wrote a `docker-compose.yml` that defined them all. The service definitions include:
+- `build`, pointing to each service's directory (excluding the databases)
+- `image`, (just for the databases)
+- `container_name`, just to keep things clean
+- `expose` or `ports`, depending on if we wanted the services to be internal-only or externally accessible
+- `env_file`, referring to a shared `.env` file (saved us from a bunch of variable interpolation)
+- `depends_on`, which makes sure the services start in the correct order
+- `volumes`, which pointed out the database bind mounts and the auth's named volume
+
+
+## 3. Databases
+
+### 3.1 Raw Readings (MySQL)
+We used MySQL to store raw measurements entered by users.
+
+Table `readings` (created by `.volumes/.mysql_init_volume/01-init-readings.sql`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS readings (
@@ -60,21 +86,16 @@ CREATE TABLE IF NOT EXISTS readings (
 );
 ```
 
-Why we used this:
-- Enum metric types give predictable categories.
-- `recorded_at` indexes support window queries for the analytics worker.
-- `metric_type + location + recorded_at` supports grouped time-window scanning.
+### 3.2 Analytics Snapshots (MongoDB)
+We used MongoDB to store snapshots calculated by `svc_analytics`.
 
-### 3.2 MongoDB Analytics Snapshots
-We used MongoDB to store denormalized snapshots so dashboard reads do not recalculate aggregates every request.
+Collection `analytics_snapshots` (created by `.volumes/.mongodb_init_volume/01-init-analytics.js`).
 
-Collection: `analytics_snapshots` (created/indexed by `.volumes/.mongodb_init_volume/01-init-analytics.js`).
-
-Main indexed fields:
+Indexes:
 - `calculated_at` for latest/range selection.
-- nested `groups.metric_type` and `groups.location` for grouped filtering patterns.
+- `groups.metric_type` and `groups.location` for group filtering.
 
-Snapshot structure includes:
+Snapshots generally include:
 - `calculated_at`
 - `window_start`, `window_end`
 - `source_count`
@@ -83,264 +104,139 @@ Snapshot structure includes:
 
 ## 4. Authentication and Authorization
 
-### 4.1 Auth Service Responsibilities
-`svc_authentication` provides:
-- `POST /auth/login` for credential validation and JWT issuance.
-- `GET /auth/me` for token verification and user context.
-- `POST /users`, `GET /users`, `PATCH /users/{username}` for admin user management.
+### 4.1 Auth Service
+`svc_authentication` is a purely ui-less service that provides:
+- Credential validation and JWT creation.
+- JWT verification and user role.
+- User management.
 
 We used:
-- `bcrypt` hashing (configurable rounds) for password storage.
-- JWT bearer tokens (`HS256`) with `sub`, `is_admin`, `iat`, `exp` claims.
-- role checks in dependencies (`require_admin`) for admin routes.
+- `bcrypt` hashing for passwords stored in SQLite
+- JWT bearer tokens
+- FastAPI dependencies for authorization checks (`api.dependencies.require_admin`)
 
-### 4.2 Startup Seeding
-On startup, auth service:
-1. validates required environment variables,
-2. initializes password context,
-3. initializes DB schema,
-4. seeds initial admin user if no users exist.
+### 4.2 Guardrails
+The auth service also prevents actions that would brick admin access:
+- Removing admin role from the last active admin,
+- Deactivating the last active admin.
 
-This gives deterministic bootstrap behavior for local/dev environments.
-
-### 4.3 Guardrails
-Admin update logic prevents lockout of the platform by blocking:
-- removing admin role from the last active admin,
-- deactivating the last active admin.
-
-This is a practical operational safety check.
+### 4.3 Routes
+- `POST /auth/login` -> token + user info
+- `GET /auth/me` -> authenticated user context
+- `GET /users` (admin) -> list of users
+- `POST /users` (admin) -> create user
+- `PATCH /users/{username}` (admin) -> update user
+- `GET /health` -> health check
 
 ## 5. Data Entry Web App
 
 ### 5.1 Main Responsibilities
-`web_dataentry` handles:
+`web_dataentry` primarily performs two main functions:
+- Data entry form
+- User management page
+
+To do this, it needs to deal with:
 - login/logout UX,
 - session management,
-- secure data entry form,
-- admin user management page.
-
-It keeps a server-side session and stores auth token in session state.
+- form validation,
+- auth checks.
 
 ### 5.2 Validation and Normalization
-Input is validated in `readingValidation.js`:
-- required `recorded_at`
-- location length 1 to 100
-- metric type in allowed list
-- numeric metric value
-- timezone offset bounds
-- notes length <= 255
+Input is validated in `readingValidation.js` on the server (not the client), then a timestamp is normalized to UTC before forwarding to MySQL. This wasn't originally the plan, but encountered some annoying errors so decided to just UTC all the things.
+- Server-side validation protects data integrity.
+- UTC normalization negates timezone drift.
 
-Then timestamp is normalized to UTC before insert.
+(We should've just stuck with created-date rather than adding an extra recorded-date field... 🙃)
 
-Example insert flow:
+### 5.3 Authorization & Protecting Pages
+When a user logs in, the backend requests a JWT token from `svc_authentication` and stores it as a session cookie in the client's browser.
 
-```javascript
-await pool.execute(
-  `INSERT INTO readings (
-    recorded_at,
-    location,
-    metric_type,
-    metric_value,
-    notes,
-    entered_by
-  ) VALUES (?, ?, ?, ?, ?, ?)`,
-  [recordedAt, normalized.location, normalized.metricType,
-   normalized.metricValue, normalized.notes, req.session.user.username]
-);
-```
+When a client requests a protected route, the backend verifies the token by checking it with `svc_authentication` through it's `/auth/me` endpoint.
+- If token is invalid, session is cleared and user is redirected to login.
 
-Why we used this:
-- Clean server-side validation protects DB integrity.
-- UTC normalization avoids timezone drift in analytics windows.
+We used JWT tokens to make sure the claims aren't able to be faked by a malicious actor, and to simplify the session tracking for the web app specifically. (Yay separation of concerns)
 
-### 5.3 Authorization in UI
-Middleware verifies token via `/auth/me` on protected routes.
-If token is invalid, session is cleared and user is redirected to login.
+### 5.4 Routes
+- `/login`, `/logout`
+- `/entry` (GET/POST, auth required)
+- `/admin/users` (admin only)
 
-Admin-only routes (`/admin/users`) require both authentication and admin flag.
+## 6. Analytics Service
 
-## 6. Analytics Worker Service
+### 6.1 Loop Flow
+`svc_analytics` uses `time.sleep()` and a `while True:` loop to perform a set of calculations every `ANALYTICS_INTERVAL_SECONDS` (an env variable).
 
-### 6.1 Processing Model
-`svc_analytics` runs as a long-running worker with a fixed interval (`ANALYTICS_INTERVAL_SECONDS`).
+Prior to starting its loop, it also checks to make sure both MySQL and MongoDB are ready and available.
 
-Cycle behavior:
-1. wait for MySQL and Mongo readiness,
-2. compute current window,
-3. fetch MySQL readings in window,
-4. aggregate into snapshot,
+Then, on every execution, it:
+1. calculates the window to read data from,
+3. fetches MySQL readings from that window,
+4. does some calculations to aggregate it into a snapshot,
 5. write snapshot to Mongo,
-6. sleep until next cycle.
+6. sleeps until next cycle.
 
-Core run loop:
-
-```python
-while True:
-    started = time.monotonic()
-    try:
-        self.run_once()
-    except Exception as exc:
-        log_event("error", "run_failed", error=str(exc))
-
-    elapsed = time.monotonic() - started
-    sleep_seconds = max(1, self.interval_seconds - int(elapsed))
-    time.sleep(sleep_seconds)
-```
-
-### 6.2 Aggregation Strategy
-We used two aggregation levels:
-- group-level: `(metric_type, location)`
-- global-level: `metric_type`
-
-Each aggregate tracks:
+### 6.2 Target Stats
+We just decided to use some basic stats, but in theory this could be expanded:
 - `count`
 - `min`
 - `max`
 - weighted `avg`
 - `last_recorded_at`
 
-This provides both local detail and high-level trend metrics in one snapshot document.
-
-### 6.3 Operational Benefits
-- Dashboard reads stay fast because metrics are precomputed.
-- Worker failures are isolated from user-facing services.
-- Time windows are explicit and auditable (`window_start`, `window_end`).
-
 ## 7. Analytics Web App
 
 ### 7.1 Main Responsibilities
-`web_analytics` provides:
-- authenticated dashboard page,
-- `/dashboard/data` JSON endpoint for filtered/ranged data,
-- timeline range selection UX,
-- chart rendering with Chart.js.
+`web_analytics` primarily performs three main functions:
+- Dashboard page that displays data
+- Data filtering and time range selection
+- Chart rendering with Chart.js
+
+To do this, it needs to deal with:
+- login/logout UX,
+- session management,
+- auth checks.
+
+(hey that sounds familiar...)
 
 ### 7.2 Range and Timeline Logic
 The service:
-- loads timeline markers from snapshot `calculated_at` values,
-- resolves requested start/end against available bounds,
+- loads timeline ticks to display based on snapshot `calculated_at` values,
 - fetches snapshots in selected range,
 - re-aggregates matched snapshots for display,
-- builds chart data arrays (`labels`, `values`).
+- displays!
 
-This gives dynamic date filtering while still leveraging stored snapshots.
+This gives dynamic date filtering while still leveraging stored snapshots. We thought it was a bit boring at first, otherwise.
 
 ### 7.3 Front End Stack
-Dashboard uses:
-- EJS SSR template,
+The dashboard itself uses:
+- ExpressJS templates for server-side rendering,
 - Chart.js for metric average bars,
 - noUiSlider for timeline control,
-- static CSS/JS assets from `public`.
+- static CSS/JS assets stored in `/public`.
 
-## 8. API and Contract Summary
-
-### 8.1 Authentication Service APIs
-- `POST /auth/login` -> token + user info
-- `GET /auth/me` -> authenticated user context
-- `GET /users` (admin)
-- `POST /users` (admin)
-- `PATCH /users/{username}` (admin)
-- `GET /health`
-
-### 8.2 Web Application Routes
-`web_dataentry`:
-- `/login`, `/logout`
-- `/entry` (GET/POST, auth required)
-- `/admin/users` (admin only)
-
-`web_analytics`:
+### 7.4 Routes
 - `/login`, `/logout`
 - `/dashboard` (auth required)
 - `/dashboard/data` (auth required)
 
-## 9. Configuration and Environment
+## 8. Configuration
+We provided an `.env.example` file with all necessary environment variables in one file. It's referenced in the `docker-compose.yml` with the `env_file` keyword, and contains three sections:
+- Variables that you *really* should change (secrets/passwords)
+- Variables that you can change if you want to (ports, intervals, etc.)
+- Variables that you probably don't want to change (other stuff)
 
-Required examples include:
-- Auth: `WEB_AUTH_ADMIN_USER`, `WEB_AUTH_ADMIN_PASSWORD`, `AUTH_JWT_SECRET`
-- MySQL: `MYSQL_HOST_ADDR`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
-- Mongo: `MONGO_HOST_ADDR`, `MONGO_PORT`, `MONGO_INITDB_DATABASE`, `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD`
-- Runtime: `SESSION_SECRET`, `ANALYTICS_INTERVAL_SECONDS`
+## 9. Example User Flow
 
-Each service validates required values at startup where relevant.
-
-## 10. Logging, Error Handling, and Health
-
-### 10.1 Error Model
-Auth service returns a consistent JSON error shape:
-
-```json
-{
-  "error": {
-    "code": "invalid_credentials",
-    "message": "Invalid username or password"
-  }
-}
-```
-
-This makes web clients simple to implement and maintain.
-
-### 10.2 Request Tracing
-Auth middleware propagates `X-Request-Id` and logs requests with request ID context.
-
-### 10.3 Health Endpoints
-- Auth has DB-aware health check.
-- Web apps include health routes.
-- Analytics worker logs dependency retry attempts and runtime failures.
-
-## 11. Security Design
-
-We used practical baseline controls:
-- Password hashing with bcrypt.
-- JWT expiration with server-side signature verification.
-- Admin role enforcement at API dependency level and web route middleware.
-- Session cookies with `httpOnly` and `sameSite=lax`.
-- Username uniqueness and active-admin guardrail.
-
-Current dev-oriented defaults to note:
-- session cookie `secure` is false in app code (works in local HTTP).
-- internal service traffic is plain HTTP in Docker network.
-
-For production, enable HTTPS and secure cookie settings.
-
-## 12. End to End Flow
-
-### 12.1 User Login and Data Submission
+### 9.1 User Login and Data Entry
 1. User logs in on `web_dataentry`.
 2. App calls `svc_authentication /auth/login`.
 3. Token and user role saved in session.
-4. User submits reading.
+4. User submits a reading.
 5. App validates and inserts into MySQL `readings`.
 
-### 12.2 Analytics Generation and Dashboard Read
-1. `svc_analytics` polls new MySQL window.
-2. Service computes grouped and global metrics.
+### 9.2 Analytics Generation and Dashboard Read
+1. `svc_analytics` fetches latest window's data from MySQL.
+2. Service calculates aggregated snapshot.
 3. Snapshot inserted into MongoDB.
 4. User opens `web_analytics` dashboard.
 5. App fetches snapshots by selected timeframe and renders chart/tables.
-
-## 13. What Worked Well
-- Clear separation of concerns.
-- Good local bootstrap with Docker Compose and seeded admin.
-- Solid input validation for readings.
-- Practical admin management features.
-- Dashboard designed around precomputed data for speed.
-
-## 14. Known Tradeoffs
-- Auth user store is SQLite in service volume, separate from MySQL data domain.
-- Worker runs interval polling instead of event-driven streaming.
-- Dashboard aggregations are recomputed from selected snapshots on request.
-- Session store is default in-memory store in Express (fine for coursework/dev).
-
-These are acceptable choices for a course-scale system and keep complexity low.
-
-## 15. Recommended Next Improvements
-If extended beyond coursework, next steps are:
-1. Use Redis-backed session store.
-2. Add refresh token flow or revocation list.
-3. Add structured centralized logs across services.
-4. Add contract tests between web apps and auth service.
-5. Add retention/archival policy for old snapshots.
-6. Optionally move worker to queue/event architecture.
-
-## 16. Conclusion
-This solution is a clean multi-service architecture where each component has one clear job. We used MySQL for raw event writes, MongoDB for snapshot reads, and a dedicated analytics worker to connect both. Authentication is centralized and reused by both web apps. The result is simple to run, fast enough for the project scope, and easy to explain and maintain.
