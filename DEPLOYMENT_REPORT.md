@@ -1,11 +1,5 @@
 # Project 1 — Part 2: Kubernetes Deployment & Horizontal Scaling
 
-This document covers everything we did in Part 2: the deployment of the Part 1 microservices to AWS EKS, the code changes that were necessary to make horizontal scaling actually work, and the rationale behind every non-obvious decision.
-
-It is intentionally focused on **what changed in Part 2 and why** — the Part 1 architecture and the per-service business logic are documented in `TECHNICAL_REPORT.md`.
-
----
-
 ## 1. Goal
 
 The Part 2 rubric asked us to:
@@ -14,13 +8,11 @@ The Part 2 rubric asked us to:
 2. Test horizontal scalability of the backend.
 3. Demonstrate a scenario where the backend "grows and shrinks according to demand."
 
-The implementation work in this PR is the foundation for items 2 and 3 — the manifests, service refactors, and scaling decisions that make the demo actually possible. The load testing scripts, screenshots, and the v2 report/presentation are deliberately out of scope for this PR and will follow.
-
 ---
 
 ## 2. Scaling decisions (the most important section)
 
-Not every service should — or even *can* — scale horizontally. The first thing we did was sort each service into one of three buckets and document **why** for each.
+Not every service should - or even *can* - scale horizontally. The first thing we did was sort each service into one of three buckets.
 
 | Service           | Workload type                | Replicas | Scaling policy        |
 | ----------------- | ---------------------------- | -------- | --------------------- |
@@ -35,15 +27,13 @@ Not every service should — or even *can* — scale horizontally. The first thi
 
 `web_dataentry` and `web_analytics` are request-driven, stateless-by-nature Express apps. They are the most obvious candidates: under user load they need to grow, and when the load fades they should shrink to save money. They became `Deployment` + `HorizontalPodAutoscaler` + `PodDisruptionBudget`.
 
-The catch: they were **not actually stateless** in Part 1. See section 3.2.
-
 ### 2.2 The obvious singletons: the databases
 
-MySQL and MongoDB are stateful, talk to a single EBS volume each, and our scope explicitly excludes managed databases (no RDS, no DocumentDB) or DB clustering. They stay as `StatefulSet`s with `replicas: 1` and a `ReadWriteOnce` EBS volume claim. We added resource requests/limits and a readiness probe to MySQL so the kubelet can correctly schedule it and detect when it's ready to accept connections (important so dependent services don't try to connect during MySQL's ~20 second cold start).
+MySQL and MongoDB are stateful, talk to a single EBS volume each, and we explicitly avoided dealing with managed databases. They stay as `StatefulSet`s with `replicas: 1` and a `ReadWriteOnce` EBS volume claim. We added resource requests/limits and a readiness probe to MySQL so the kubelet can correctly schedule it and detect when it's ready to accept connections (important so dependent services don't try to connect during MySQL's ~20 second cold start).
 
 ### 2.3 The painful middle ground: `svc_authentication`
 
-The auth service is a stateless FastAPI process *as a server*, but in Part 1 it stored users in a **SQLite file on a local volume** (`/data/auth.db`). That makes it impossible to safely run more than one replica — replica A would have a different user list than replica B, logins and admin user creation would fail randomly depending on which pod the load balancer hit.
+The auth service is a stateless FastAPI process *as a server*, but in Part 1 it stored users in a **SQLite file on a local volume** (`/data/auth.db`). That makes it impossible to safely run more than one replica - replica A would have a different user list than replica B, logins and admin user creation would fail randomly depending on which pod the load balancer hit.
 
 We had three options:
 
