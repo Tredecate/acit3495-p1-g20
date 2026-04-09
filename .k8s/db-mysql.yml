@@ -1,2 +1,99 @@
 # This file holds the K8s objects for the MySQL instance
 ---
+# Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  labels:
+    role: mysql
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    role: mysql
+  
+  ports:
+    - port: 3306
+      targetPort: 3306
+
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-set
+  labels:
+    role: mysql
+
+spec:
+  serviceName: "mysql-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      role: mysql
+
+  # Pod Template
+  template:
+    metadata:
+      labels:
+        role: mysql
+
+    spec:
+      containers:
+        - name: mysql-db
+          image: mysql:8.4
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d/
+          envFrom:
+            - configMapRef:
+                name: mysql-env-configmap
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: MYSQL_PASSWORD
+
+      volumes:
+        - name: mysql-init
+          configMap:
+            name: mysql-init-configmap
+  
+  # Volume Claim Templates
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "ebs-storageclass"
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+# ConfigMap for MySQL initialization scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-configmap
+
+data:
+  01-init-readings.sql: |
+    CREATE TABLE IF NOT EXISTS readings (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      recorded_at DATETIME NOT NULL,
+      location VARCHAR(100) NOT NULL,
+      metric_type ENUM('temperature_c','humidity_pct','co2_ppm') NOT NULL,
+      metric_value DECIMAL(10,2) NOT NULL,
+      notes VARCHAR(255) NULL,
+      entered_by VARCHAR(50) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_recorded_at (recorded_at),
+      INDEX idx_metric_location_time (metric_type, location, recorded_at),
+      INDEX idx_entered_by (entered_by)
+    );
