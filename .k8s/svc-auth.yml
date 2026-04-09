@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: svc-auth
-          image: svc_authentication:latest
+          image: tredecate/svc_authentication:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: web-dataentry
-          image: web_dataentry:latest
+          image: tredecate/web_dataentry:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

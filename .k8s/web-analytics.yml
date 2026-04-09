@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: web-analytics
-          image: web_analytics:latest
+          image: tredecate/web_analytics:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

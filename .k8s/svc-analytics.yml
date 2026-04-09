@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: svc-analytics
-          image: svc_analytics:latest
+          image: tredecate/svc_analytics:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
