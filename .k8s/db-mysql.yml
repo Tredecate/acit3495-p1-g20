@@ -63,6 +63,11 @@ spec:
                 secretKeyRef:
                   name: env-secret
                   key: AUTH_MYSQL_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: MYSQL_ROOT_PASSWORD
           resources:
             requests:
               cpu: "200m"
@@ -106,7 +111,7 @@ data:
   02-init-auth.sh: |
     #!/bin/bash
     set -e
-    mysql -uroot <<-EOSQL
+    mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<-EOSQL
       CREATE DATABASE IF NOT EXISTS \`${AUTH_MYSQL_DATABASE}\`;
       CREATE USER IF NOT EXISTS '${AUTH_MYSQL_USER}'@'%' IDENTIFIED BY '${AUTH_MYSQL_PASSWORD}';
       GRANT ALL PRIVILEGES ON \`${AUTH_MYSQL_DATABASE}\`.* TO '${AUTH_MYSQL_USER}'@'%';
