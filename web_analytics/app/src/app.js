@@ -1,6 +1,6 @@
 const path = require("path");
 const express = require("express");
-const session = require("express-session");
+const cookieParser = require("cookie-parser");
 
 const { app: appConfig } = require("./config/env");
 const { attachLocals } = require("./middleware/locals");
@@ -13,40 +13,41 @@ const app = express();
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-app.use("/static", express.static(path.join(__dirname, "..", "public")));
+if (appConfig.trustProxy) {
+  app.set("trust proxy", 1);
+}
+
+// Static files served at <basePath>/static so dashboard.ejs asset URLs match.
+app.use((appConfig.basePath || "") + "/static", express.static(path.join(__dirname, "..", "public")));
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(
-  session({
-    secret: appConfig.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax"
-    }
-  })
-);
+app.use(cookieParser());
 
-app.use(attachLocals);
+app.use(healthRoutes);
 
-app.get("/", (req, res) => {
-  if (req.session?.user?.access_token) {
-    return res.redirect("/dashboard");
+const router = express.Router();
+router.use(attachLocals);
+
+router.get("/", (req, res) => {
+  if (req.cookies?.access_token) {
+    return res.redirect(req.baseUrl + "/dashboard");
   }
-  return res.redirect("/login");
+  return res.redirect(req.baseUrl + "/login");
 });
 
-app.use(authRoutes);
-app.use(dashboardRoutes);
-app.use(healthRoutes);
+router.use(authRoutes);
+router.use(dashboardRoutes);
+
+app.use(appConfig.basePath || "/", router);
 
 app.use((req, res) => {
   res.status(404).render("error", {
     title: "Not Found",
     error: "Page not found.",
-    statusCode: 404
+    statusCode: 404,
+    basePath: appConfig.basePath,
+    currentUser: null
   });
 });
 
@@ -58,7 +59,9 @@ app.use((err, req, res, next) => {
   res.status(statusCode).render("error", {
     title: "Error",
     error: message,
-    statusCode
+    statusCode,
+    basePath: appConfig.basePath,
+    currentUser: null
   });
 });
 

@@ -1,44 +1,59 @@
 const { me } = require("../services/authClient");
+const { app: appConfig } = require("../config/env");
 
-function clearSessionAndRedirect(req, res) {
-  req.session.destroy(() => {
-    res.redirect("/login");
+const ACCESS_TOKEN_COOKIE = "access_token";
+
+function clearTokenCookie(res) {
+  res.clearCookie(ACCESS_TOKEN_COOKIE, {
+    httpOnly: true,
+    secure: appConfig.cookieSecure,
+    sameSite: "lax",
+    path: appConfig.basePath || "/"
   });
 }
 
+function clearAndRedirect(req, res) {
+  clearTokenCookie(res);
+  res.redirect(req.baseUrl + "/login");
+}
+
 async function requireAuth(req, res, next) {
-  const user = req.session?.user;
-  if (!user?.access_token) {
-    return res.redirect("/login");
+  const token = req.cookies?.[ACCESS_TOKEN_COOKIE];
+  if (!token) {
+    return res.redirect(req.baseUrl + "/login");
   }
 
   try {
-    const meResponse = await me(user.access_token);
-    req.session.user.username = meResponse.username;
-    req.session.user.is_admin = meResponse.is_admin;
+    const meResponse = await me(token);
+    req.user = {
+      access_token: token,
+      username: meResponse.username,
+      is_admin: meResponse.is_admin
+    };
+    res.locals.currentUser = req.user;
     return next();
   } catch (error) {
     if (error?.response?.status === 401) {
-      return clearSessionAndRedirect(req, res);
+      return clearAndRedirect(req, res);
     }
     return next(error);
   }
 }
 
-async function requireAdmin(req, res, next) {
-  const user = req.session?.user;
-  if (!user?.is_admin) {
+function requireAdmin(req, res, next) {
+  if (!req.user?.is_admin) {
     return res.status(403).render("error", {
       title: "Forbidden",
       error: "Admin access is required to view this page.",
       statusCode: 403
     });
   }
-
   return next();
 }
 
 module.exports = {
   requireAuth,
-  requireAdmin
+  requireAdmin,
+  clearTokenCookie,
+  ACCESS_TOKEN_COOKIE
 };

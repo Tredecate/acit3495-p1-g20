@@ -1,8 +1,20 @@
 const { login } = require("../services/authClient");
+const { app: appConfig } = require("../config/env");
+const { clearTokenCookie, ACCESS_TOKEN_COOKIE } = require("../middleware/auth");
+
+function setTokenCookie(res, token, ttlSeconds) {
+  res.cookie(ACCESS_TOKEN_COOKIE, token, {
+    httpOnly: true,
+    secure: appConfig.cookieSecure,
+    sameSite: "lax",
+    path: appConfig.basePath || "/",
+    maxAge: (ttlSeconds || 3600) * 1000
+  });
+}
 
 function getLogin(req, res) {
-  if (req.session?.user?.access_token) {
-    return res.redirect("/entry");
+  if (req.cookies?.[ACCESS_TOKEN_COOKIE]) {
+    return res.redirect(req.baseUrl + "/entry");
   }
   return res.render("login", { title: "Login" });
 }
@@ -20,12 +32,8 @@ async function postLogin(req, res, next) {
 
   try {
     const authResponse = await login(username, password);
-    req.session.user = {
-      access_token: authResponse.access_token,
-      username: authResponse.user.username,
-      is_admin: authResponse.user.is_admin
-    };
-    return res.redirect("/entry");
+    setTokenCookie(res, authResponse.access_token, authResponse.expires_in);
+    return res.redirect(req.baseUrl + "/entry");
   } catch (error) {
     if (error?.response?.status === 401) {
       return res.status(401).render("login", {
@@ -38,9 +46,8 @@ async function postLogin(req, res, next) {
 }
 
 function postLogout(req, res) {
-  req.session.destroy(() => {
-    res.redirect("/login");
-  });
+  clearTokenCookie(res);
+  return res.redirect(req.baseUrl + "/login");
 }
 
 module.exports = {

@@ -1,2 +1,100 @@
-# This file holds the K8s objects for the dataentry web-app
+# web_dataentry: stateless Express app, horizontally scalable.
+# JWT cookie auth (no session store) so any replica can serve any request.
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-dataentry
+  labels:
+    app: web-dataentry
+spec:
+  type: ClusterIP
+  selector:
+    app: web-dataentry
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-dataentry
+  labels:
+    app: web-dataentry
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-dataentry
+  template:
+    metadata:
+      labels:
+        app: web-dataentry
+    spec:
+      containers:
+        - name: web-dataentry
+          image: web_dataentry:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: web-dataentry-env-configmap
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: MYSQL_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-dataentry-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web-dataentry
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-dataentry-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: web-dataentry

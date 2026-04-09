@@ -1,6 +1,7 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.security import hash_password, init_password_context
@@ -29,8 +30,13 @@ def seed_initial_admin() -> None:
             updated_at=timestamp,
         )
         db.add(admin_user)
-        db.commit()
-        logger.info("Seeded initial admin user", extra={"request_id": "startup"})
+        try:
+            db.commit()
+            logger.info("Seeded initial admin user", extra={"request_id": "startup"})
+        except IntegrityError:
+            # Another auth replica seeded the admin first; safe to ignore.
+            db.rollback()
+            logger.info("Admin user already seeded by peer replica", extra={"request_id": "startup"})
 
 
 def initialize_service() -> None:

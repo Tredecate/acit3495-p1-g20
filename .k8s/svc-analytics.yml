@@ -1,2 +1,53 @@
-# This file holds the K8s objects for the analytics service
+# svc_analytics: periodic aggregation worker.
+#
+# DELIBERATELY PINNED TO replicas: 1. The worker holds last_window_end in
+# process memory and computes the next aggregation window from it. Two
+# replicas would race on overlapping windows. Mongo writes are upserted on
+# (window_start, window_end) as a safety net for restart, but real scale-out
+# would require leader election or sharding by key. NO HPA.
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-analytics
+  labels:
+    app: svc-analytics
+    scaling-policy: singleton
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: svc-analytics
+  template:
+    metadata:
+      labels:
+        app: svc-analytics
+        scaling-policy: singleton
+    spec:
+      containers:
+        - name: svc-analytics
+          image: svc_analytics:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: svc-analytics-env-configmap
+          env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: MYSQL_PASSWORD
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: MONGO_INITDB_ROOT_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

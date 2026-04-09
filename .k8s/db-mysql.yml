@@ -58,6 +58,26 @@ spec:
                 secretKeyRef:
                   name: env-secret
                   key: MYSQL_PASSWORD
+            - name: AUTH_MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: AUTH_MYSQL_PASSWORD
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD"
+            initialDelaySeconds: 10
+            periodSeconds: 10
 
       volumes:
         - name: mysql-init
@@ -83,6 +103,15 @@ metadata:
   name: mysql-init-configmap
 
 data:
+  02-init-auth.sh: |
+    #!/bin/bash
+    set -e
+    mysql -uroot <<-EOSQL
+      CREATE DATABASE IF NOT EXISTS \`${AUTH_MYSQL_DATABASE}\`;
+      CREATE USER IF NOT EXISTS '${AUTH_MYSQL_USER}'@'%' IDENTIFIED BY '${AUTH_MYSQL_PASSWORD}';
+      GRANT ALL PRIVILEGES ON \`${AUTH_MYSQL_DATABASE}\`.* TO '${AUTH_MYSQL_USER}'@'%';
+      FLUSH PRIVILEGES;
+    EOSQL
   01-init-readings.sql: |
     CREATE TABLE IF NOT EXISTS readings (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

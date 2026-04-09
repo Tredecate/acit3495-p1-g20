@@ -10,12 +10,12 @@
   <p>Signed in as <strong><%= currentUser.username %></strong> <% if (currentUser.is_admin) { %>(admin)<% } %></p>
   <p>Recorded At is interpreted in your local timezone and stored as UTC.</p>
 
-  <form method="post" action="/logout" style="display: inline; margin-right: 8px;">
+  <form method="post" action="<%= basePath %>/logout" style="display: inline; margin-right: 8px;">
     <button type="submit">Logout</button>
   </form>
 
   <% if (currentUser.is_admin) { %>
-    <a href="/admin/users">Manage Users</a>
+    <a href="<%= basePath %>/admin/users">Manage Users</a>
   <% } %>
 
   <hr />
@@ -28,7 +28,7 @@
     <p style="color: green;"><%= message %></p>
   <% } %>
 
-  <form method="post" action="/entry">
+  <form method="post" action="<%= basePath %>/entry">
     <input id="timezone_offset_min" name="timezone_offset_min" type="hidden" value="" />
 
     <label for="recorded_at">Recorded At</label><br />

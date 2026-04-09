@@ -4,18 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %></title>
-  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <link rel="stylesheet" href="<%= basePath %>/static/css/dashboard.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.js" defer></script>
-  <script src="/static/js/dashboard.js" defer></script>
+  <script>window.BASE_PATH = "<%= basePath %>";</script>
+  <script src="<%= basePath %>/static/js/dashboard.js" defer></script>
 </head>
 <body>
   <div class="layout-stack">
     <h1>Analytics Dashboard</h1>
 
     <p>Signed in as <strong><%= currentUser?.username || "unknown" %></strong></p>
-    <form method="post" action="/logout">
+    <form method="post" action="<%= basePath %>/logout">
       <button type="submit">Logout</button>
     </form>
 
