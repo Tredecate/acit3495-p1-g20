@@ -8,12 +8,12 @@ metadata:
   labels:
     app: web-analytics
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: web-analytics
   ports:
     - name: http
-      port: 8080
+      port: 80
       targetPort: 8080
 
 ---

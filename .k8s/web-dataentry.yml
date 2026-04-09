@@ -8,12 +8,12 @@ metadata:
   labels:
     app: web-dataentry
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: web-dataentry
   ports:
     - name: http
-      port: 8080
+      port: 80
       targetPort: 8080
 
 ---
