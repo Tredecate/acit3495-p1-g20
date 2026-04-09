@@ -4,14 +4,20 @@ const {
   patchUser,
   isAuthError
 } = require("../services/authClient");
+const { clearTokenCookie } = require("../middleware/auth");
 
 function parseBooleanForm(value) {
   return value === "on" || value === "true";
 }
 
+function unauthorizedRedirect(req, res) {
+  clearTokenCookie(res);
+  return res.redirect(req.baseUrl + "/login");
+}
+
 async function getUsers(req, res, next) {
   try {
-    const users = await listUsers(req.session.user.access_token);
+    const users = await listUsers(req.user.access_token);
     return res.render("admin-users", {
       title: "User Management",
       users,
@@ -20,8 +26,7 @@ async function getUsers(req, res, next) {
     });
   } catch (error) {
     if (error?.response?.status === 401) {
-      req.session.destroy(() => res.redirect("/login"));
-      return;
+      return unauthorizedRedirect(req, res);
     }
     if (error?.response?.status === 403) {
       return res.status(403).render("error", {
@@ -40,7 +45,7 @@ async function postUsers(req, res, next) {
 
   if (!username || !password) {
     try {
-      const users = await listUsers(req.session.user.access_token);
+      const users = await listUsers(req.user.access_token);
       return res.status(400).render("admin-users", {
         title: "User Management",
         users,
@@ -53,18 +58,17 @@ async function postUsers(req, res, next) {
   }
 
   try {
-    await createUser(req.session.user.access_token, {
+    await createUser(req.user.access_token, {
       username,
       password,
       is_admin: parseBooleanForm(req.body.is_admin),
       is_active: req.body.is_active !== "off"
     });
-    return res.redirect("/admin/users");
+    return res.redirect(req.baseUrl + "/admin/users");
   } catch (error) {
     if (isAuthError(error)) {
       if (error.response.status === 401) {
-        req.session.destroy(() => res.redirect("/login"));
-        return;
+        return unauthorizedRedirect(req, res);
       }
       return res.status(403).render("error", {
         title: "Forbidden",
@@ -74,7 +78,7 @@ async function postUsers(req, res, next) {
     }
 
     try {
-      const users = await listUsers(req.session.user.access_token);
+      const users = await listUsers(req.user.access_token);
       const fallbackMessage = "Unable to create user.";
       const message = error?.response?.data?.error?.message || fallbackMessage;
       return res.status(error?.response?.status || 400).render("admin-users", {
@@ -101,13 +105,12 @@ async function patchUserController(req, res, next) {
   payload.is_active = parseBooleanForm(req.body.is_active);
 
   try {
-    await patchUser(req.session.user.access_token, username, payload);
-    return res.redirect("/admin/users");
+    await patchUser(req.user.access_token, username, payload);
+    return res.redirect(req.baseUrl + "/admin/users");
   } catch (error) {
     if (isAuthError(error)) {
       if (error.response.status === 401) {
-        req.session.destroy(() => res.redirect("/login"));
-        return;
+        return unauthorizedRedirect(req, res);
       }
       return res.status(403).render("error", {
         title: "Forbidden",
@@ -117,7 +120,7 @@ async function patchUserController(req, res, next) {
     }
 
     try {
-      const users = await listUsers(req.session.user.access_token);
+      const users = await listUsers(req.user.access_token);
       const fallbackMessage = "Unable to update user.";
       const message = error?.response?.data?.error?.message || fallbackMessage;
       return res.status(error?.response?.status || 400).render("admin-users", {

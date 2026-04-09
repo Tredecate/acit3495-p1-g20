@@ -1,0 +1,100 @@
+# web_analytics: stateless Express app, horizontally scalable.
+# JWT cookie auth (no session store) so any replica can serve any request.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-analytics
+  labels:
+    app: web-analytics
+spec:
+  type: LoadBalancer
+  selector:
+    app: web-analytics
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-analytics
+  labels:
+    app: web-analytics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-analytics
+  template:
+    metadata:
+      labels:
+        app: web-analytics
+    spec:
+      containers:
+        - name: web-analytics
+          image: tredecate/web_analytics:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: web-analytics-env-configmap
+          env:
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: MONGO_INITDB_ROOT_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-analytics-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web-analytics
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-analytics-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: web-analytics

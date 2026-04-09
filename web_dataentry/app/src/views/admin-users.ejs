@@ -9,8 +9,8 @@
   <h1>User Management</h1>
   <p>Signed in as <strong><%= currentUser.username %></strong> (admin)</p>
 
-  <a href="/entry">Back to Entry</a>
-  <form method="post" action="/logout" style="display: inline; margin-left: 8px;">
+  <a href="<%= basePath %>/entry">Back to Entry</a>
+  <form method="post" action="<%= basePath %>/logout" style="display: inline; margin-left: 8px;">
     <button type="submit">Logout</button>
   </form>
 
@@ -25,7 +25,7 @@
   <% } %>
 
   <h2>Create User</h2>
-  <form method="post" action="/admin/users">
+  <form method="post" action="<%= basePath %>/admin/users">
     <label for="username">Username</label><br />
     <input id="username" name="username" type="text" required /><br /><br />
 
@@ -65,7 +65,7 @@
           <td><%= user.created_at %></td>
           <td><%= user.updated_at %></td>
           <td>
-            <form method="post" action="/admin/users/<%= encodeURIComponent(user.username) %>">
+            <form method="post" action="<%= basePath %>/admin/users/<%= encodeURIComponent(user.username) %>">
               <label>
                 <input name="is_admin" type="checkbox" <%= user.is_admin ? 'checked' : '' %> /> Admin
               </label>

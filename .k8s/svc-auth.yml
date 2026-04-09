@@ -1,0 +1,110 @@
+# svc_authentication: stateless FastAPI, horizontally scalable.
+# Uses the shared MySQL StatefulSet (auth schema) so all replicas see the same users.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-auth
+  labels:
+    app: svc-auth
+spec:
+  type: ClusterIP
+  selector:
+    app: svc-auth
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-auth
+  labels:
+    app: svc-auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: svc-auth
+  template:
+    metadata:
+      labels:
+        app: svc-auth
+    spec:
+      containers:
+        - name: svc-auth
+          image: tredecate/svc_authentication:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: svc-auth-env-configmap
+          env:
+            - name: AUTH_MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: AUTH_MYSQL_PASSWORD
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: AUTH_JWT_SECRET
+            - name: WEB_AUTH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: env-secret
+                  key: WEB_AUTH_ADMIN_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: svc-auth-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: svc-auth
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: svc-auth-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: svc-auth

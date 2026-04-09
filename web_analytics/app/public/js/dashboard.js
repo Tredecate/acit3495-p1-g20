@@ -382,7 +382,8 @@
       params.set("end", endIso);
     }
 
-    const response = await fetch(`/dashboard/data?${params.toString()}`, {
+    const basePath = window.BASE_PATH || "";
+    const response = await fetch(`${basePath}/dashboard/data?${params.toString()}`, {
       method: "GET",
       headers: {
         Accept: "application/json"

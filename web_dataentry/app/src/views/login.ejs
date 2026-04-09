@@ -12,7 +12,7 @@
     <p style="color: red;"><%= error %></p>
   <% } %>
 
-  <form method="post" action="/login">
+  <form method="post" action="<%= basePath %>/login">
     <label for="username">Username</label><br />
     <input id="username" name="username" type="text" required /><br /><br />
 

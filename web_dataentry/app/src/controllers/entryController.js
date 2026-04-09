@@ -72,7 +72,7 @@ async function postEntry(req, res, next) {
         normalized.metricType,
         normalized.metricValue,
         normalized.notes,
-        req.session.user.username
+        req.user.username
       ]
     );
 
