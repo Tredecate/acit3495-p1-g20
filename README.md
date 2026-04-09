@@ -1,4 +1,4 @@
-# ACIT3495 - Project - Group 20 (& Later Group 5)
+# ACIT3495 - Project - Group 20 (& Later Group 8)
 *Link to technical report: [TECHNICAL_REPORT.md](./TECHNICAL_REPORT.md)*
 
 *Link to deployment report: [DEPLOYMENT_REPORT.md](./DEPLOYMENT_REPORT.md) **(FOR PART TWO!!!)*** 
