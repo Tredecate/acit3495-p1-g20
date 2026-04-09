@@ -1,5 +1,7 @@
-# ACIT3495 - Project 1 - Group 20
+# ACIT3495 - Project - Group 20 (& Later Group 5)
 *Link to technical report: [TECHNICAL_REPORT.md](./TECHNICAL_REPORT.md)*
+
+*Link to deployment report: [DEPLOYMENT_REPORT.md](./DEPLOYMENT_REPORT.md) **(FOR PART TWO!!!)*** 
 ## Group Members
 - [Thomas](https://github.com/Tredecate)
 - [Maksym](https://github.com/nemanull)
